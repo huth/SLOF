@@ -428,7 +428,7 @@ static partition_t create_nvram_partition(int type, const char *name, unsigned l
 
 	offset = calc_used_nvram_space();
 
-	if (NVRAM_LENGTH-(calc_used_nvram_space())<plen) {
+	if (NVRAM_LENGTH - calc_used_nvram_space() < (int)plen) {
 		DEBUG("Not enough free space.\n");
 		return ret;
 	}
