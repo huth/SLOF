@@ -1080,6 +1080,8 @@ uint32_t tpm_measure_bcv_mbr(uint32_t bootdrv, const uint8_t *addr,
  */
 void tpm_gpt_set_lba1(const uint8_t *addr, uint32_t length)
 {
+	UEFI_PARTITION_TABLE_HEADER *upth = (UEFI_PARTITION_TABLE_HEADER *)addr;
+
 	if (!tpm_is_working())
 		return;
 
@@ -1090,8 +1092,14 @@ void tpm_gpt_set_lba1(const uint8_t *addr, uint32_t length)
 	if (!uefi_gpt_data)
 		return;
 
-	memcpy(&uefi_gpt_data->EfiPartitionHeader,
-	       addr, MIN(sizeof(uefi_gpt_data->EfiPartitionHeader), length));
+	/* Length must be at least the size of EfiPartitionHeader (92bytes) */
+	if (length < sizeof(uefi_gpt_data->EfiPartitionHeader) ||
+	    le32_to_cpu(upth->header.size) !=
+	      sizeof(uefi_gpt_data->EfiPartitionHeader))
+		return;
+
+	memcpy(&uefi_gpt_data->EfiPartitionHeader, addr,
+	       sizeof(uefi_gpt_data->EfiPartitionHeader));
 	uefi_gpt_data->NumberOfPartitions = cpu_to_le64(0);
 }
 
