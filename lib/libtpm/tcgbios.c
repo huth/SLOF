@@ -1092,7 +1092,7 @@ void tpm_gpt_set_lba1(const uint8_t *addr, uint32_t length)
 
 	memcpy(&uefi_gpt_data->EfiPartitionHeader,
 	       addr, MIN(sizeof(uefi_gpt_data->EfiPartitionHeader), length));
-	uefi_gpt_data->NumberOfPartitions = 0;
+	uefi_gpt_data->NumberOfPartitions = cpu_to_le64(0);
 }
 
 /*
@@ -1104,6 +1104,7 @@ void tpm_gpt_add_entry(const uint8_t *addr, uint32_t length)
 	size_t sz;
 	UEFI_PARTITION_ENTRY *upe = (void *)addr;
 	void *tmp;
+	uint64_t numberOfPartitions;
 
 	if (!tpm_is_working() ||
 	    !uefi_gpt_data ||
@@ -1111,8 +1112,9 @@ void tpm_gpt_add_entry(const uint8_t *addr, uint32_t length)
 	    !memcmp(upe->partTypeGuid, ZeroGuid, sizeof(ZeroGuid)))
 		return;
 
+	numberOfPartitions = le64_to_cpu(uefi_gpt_data->NumberOfPartitions);
 	sz = offset_of(UEFI_GPT_DATA, Partitions) +
-	       (uefi_gpt_data->NumberOfPartitions + 1)
+	       (numberOfPartitions + 1)
 	       * sizeof(UEFI_PARTITION_ENTRY);
 	if (sz > uefi_gpt_data_size) {
 		tmp = SLOF_alloc_mem(sz);
@@ -1125,10 +1127,12 @@ void tpm_gpt_add_entry(const uint8_t *addr, uint32_t length)
 		uefi_gpt_data_size = sz;
 	}
 
-	memcpy(&uefi_gpt_data->Partitions[uefi_gpt_data->NumberOfPartitions],
+	memcpy(&uefi_gpt_data->Partitions[numberOfPartitions],
 	       addr,
 	       sizeof(UEFI_PARTITION_ENTRY));
-	uefi_gpt_data->NumberOfPartitions++;
+
+	numberOfPartitions++;
+	uefi_gpt_data->NumberOfPartitions = cpu_to_le64(numberOfPartitions);
 
 	return;
 
@@ -1150,7 +1154,8 @@ uint32_t tpm_measure_gpt(void)
 		return TCGBIOS_GENERAL_ERROR;
 
 	sz = offset_of(UEFI_GPT_DATA, Partitions) +
-	     uefi_gpt_data->NumberOfPartitions * sizeof(UEFI_PARTITION_ENTRY);
+	       le64_to_cpu(uefi_gpt_data->NumberOfPartitions)
+	       * sizeof(UEFI_PARTITION_ENTRY);
 
 	return tpm_add_measurement_to_log(5, EV_EFI_GPT_EVENT,
 					  (const char *)uefi_gpt_data, sz,
